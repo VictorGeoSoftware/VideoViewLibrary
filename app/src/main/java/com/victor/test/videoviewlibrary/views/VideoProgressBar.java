@@ -4,11 +4,8 @@ import android.content.Context;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.view.GestureDetectorCompat;
 import android.util.AttributeSet;
-import android.view.GestureDetector;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -21,11 +18,10 @@ import com.victor.test.videoviewlibrary.utils.MyUtils;
  * ${APP_NAME}
  */
 
-public class VideoProgressBar extends FrameLayout implements GestureDetector.OnGestureListener {
+public class VideoProgressBar extends FrameLayout implements DragableButton.ButtonPositionListener {
     private View barView;
-    private View button;
+    private DragableButton button;
     private ButtonChangedListener buttonChangedListener;
-    private GestureDetectorCompat mDetector;
 
 
     // --------------------------------------------------------------------------------------------------------------------------------------
@@ -48,76 +44,32 @@ public class VideoProgressBar extends FrameLayout implements GestureDetector.OnG
 
 
     // --------------------------------------------------------------------------------------------------------------------------------------
-    // ------------------------------------------------------------ TOUCH EVENT INTERFACE ---------------------------------------------------
+    // ------------------------------------------------------------ VIEW INTERFACE ----------------------------------------------------------
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        this.mDetector.onTouchEvent(event);
-
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-//                CONSUMIDO POR EL INTERCEPT TOUCH EVENT
-                break;
-
-            case MotionEvent.ACTION_MOVE:
-
-                break;
-
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-
-                break;
-        }
-
-        return super.onTouchEvent(event);
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        MyUtils.setLog(this, "onLayout " + barView.getX() + " | " + (barView.getX() + barView.getWidth()));
+        button.configureWithProgressBar(barView.getX(), barView.getX() + barView.getWidth());
     }
 
 
 
     // --------------------------------------------------------------------------------------------------------------------------------------
-    // ------------------------------------------------------------ GESTURE INTERFACE -------------------------------------------------------
+    // ------------------------------------------------------------ BUTTON INTERFACE --------------------------------------------------------
     @Override
-    public boolean onDown(MotionEvent motionEvent) {
-        MyUtils.setLog(this, "onDown");
-        return false;
+    public void onButtonPositionChanged(float xCoordinate) {
+        int percentage = getButtonPercentageByPosition(xCoordinate);
+
+        if (buttonChangedListener != null) {
+            buttonChangedListener.onButtonBarPositionChanged(percentage);
+        }
     }
-
-    @Override
-    public void onShowPress(MotionEvent motionEvent) {
-        MyUtils.setLog(this, "onShowPress");
-    }
-
-    @Override
-    public boolean onSingleTapUp(MotionEvent motionEvent) {
-        MyUtils.setLog(this, "onSingleTapUp");
-        return false;
-    }
-
-    @Override
-    public boolean onScroll(MotionEvent motionEvent, MotionEvent motionEvent1, float v, float v1) {
-        MyUtils.setLog(this, "onScroll");
-        return false;
-    }
-
-    @Override
-    public void onLongPress(MotionEvent motionEvent) {
-        MyUtils.setLog(this, "onLongPress");
-    }
-
-    @Override
-    public boolean onFling(MotionEvent motionEvent, MotionEvent motionEvent1, float v, float v1) {
-        MyUtils.setLog(this, "onFling");
-        return false;
-    }
-
-
-
 
 
 
     // --------------------------------------------------------------------------------------------------------------------------------------
     // ------------------------------------------------------------ METHODS -----------------------------------------------------------------
     private void buildWidget(Context context) {
-        mDetector = new GestureDetectorCompat(context, this);
 
         // ------ 1º Progress bar building
         int viewHeight = MyUtils.getDpFromValue(context, 5);
@@ -129,11 +81,8 @@ public class VideoProgressBar extends FrameLayout implements GestureDetector.OnG
 
 
         // ------ 2º Dragable button building
-        int buttonDim = MyUtils.getDpFromValue(context, 30);
-        button = new View(context);
-        LayoutParams buttonLP = new LayoutParams(buttonDim, buttonDim);
-        button.setLayoutParams(buttonLP);
-        button.setBackground(ContextCompat.getDrawable(context, R.drawable.button_background));
+        button = new DragableButton(context);
+        button.setButtonPositionListener(this);
 
 
         // ------ 3º Add views to parent layout
@@ -141,15 +90,23 @@ public class VideoProgressBar extends FrameLayout implements GestureDetector.OnG
         this.addView(button);
     }
 
+    public int getButtonPercentageByPosition(float xPosition) {
+        int buttonWidth = button.getWidth();
+        int barWidth = barView.getWidth() - buttonWidth; // Its necessary to Remove button width for optimal calculation
+
+        return (int) (xPosition * 100 / barWidth);
+    }
+
     public void setButtonBarByPercentage(int percentage) {
-        int barWidth = barView.getWidth();
+        int buttonWidth = button.getWidth();
+        int barWidth = barView.getWidth() - buttonWidth;
         MyUtils.setLog(this, "barWidth :: " + barWidth);
         int positionToSet = (int) (barView.getX() + barWidth * percentage / 100);
         MyUtils.setLog(this, "positionToSet :: " + positionToSet);
         button.setX(positionToSet);
 
         if (buttonChangedListener != null) {
-            buttonChangedListener.onButtonChanged(percentage);
+            buttonChangedListener.onButtonBarPositionChanged(percentage);
         }
     }
 
@@ -157,11 +114,10 @@ public class VideoProgressBar extends FrameLayout implements GestureDetector.OnG
         this.buttonChangedListener = buttonChangedListener;
     }
 
-    // TODO :: gesture para mover el boton sobre la barra
 
-
-
+    // --------------------------------------------------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------ METHODS -----------------------------------------------------------------
     public interface ButtonChangedListener {
-        void onButtonChanged(int barPercentage);
+        void onButtonBarPositionChanged(int barPercentage);
     }
 }
